@@ -1,0 +1,12 @@
+pandas
+yfinance
+requests
+python-dotenv
+lxml
+html5lib
+ta
+finnhub-python
+beautifulsoup4
+numpy
+feedparser
+pyfinviz

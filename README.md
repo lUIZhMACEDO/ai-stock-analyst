@@ -34,9 +34,10 @@ git push origin public
 
 ### 3. Result
 
-- **Public app** → visitors only see “Analyze Stocks”
-- **Personal app** → you see “My Portfolio” with your holdings from `main.py`
+- **Public app** → visitors only see "Analyze Stocks"
+- **Personal app** → you see "My Portfolio" with your holdings from `main.py`
 
 ## Note on portfolio persistence
 
 On Streamlit Cloud, `portfolio_save.json` does not persist across restarts. Your personal app loads your portfolio from `MY_PORTFOLIO` in `main.py`. Edits during a session are in memory only.
+

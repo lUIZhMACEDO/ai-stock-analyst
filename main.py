@@ -79,28 +79,10 @@ if FINNHUB_API_KEY and _fh_mod:
     except Exception:
         _fh = None
 
-# -- YOUR PORTFOLIO --
-MY_PORTFOLIO = [
-    {"ticker": "OKLO",  "shares": 14,  "avg_cost": 62.90},
-    {"ticker": "EWY",   "shares": 13,  "avg_cost": 114.11},
-    {"ticker": "SCHD",  "shares": 18,  "avg_cost": 28.53},
-    {"ticker": "VOO",   "shares": 6,   "avg_cost": 631.55},
-]
-
-PORTFOLIO_STRATEGIES = {
-    "OKLO": "Hold until July 2026 DOE milestones; Sell if >$85.",
-    "VOO":  "Core position. Buy more if price dips below $615.",
-    "SCHD": "Dividend play. Reinvest distributions quarterly.",
-    "EWY":  "Take 25% profit now; South Korea index is at 52W highs.",
-}
-
-ALERT_RULES = {
-    "OKLO":  {"price_move_pct": 3.0, "min_score_change": 3, "earnings_days": 2},
-    "VOO":   {"price_move_pct": 2.0, "min_score_change": 4, "earnings_days": 1},
-    "EWY":   {"price_move_pct": 3.0, "min_score_change": 3, "earnings_days": 2},
-    "SCHD":  {"price_move_pct": 2.5, "min_score_change": 4, "earnings_days": 2},
-    "_default": {"price_move_pct": 3.0, "min_score_change": 3, "earnings_days": 2},
-}
+# -- PUBLIC BRANCH: No personal portfolio --
+MY_PORTFOLIO = []
+PORTFOLIO_STRATEGIES = {}
+ALERT_RULES = {"_default": {"price_move_pct": 3.0, "min_score_change": 3, "earnings_days": 2}}
 SCORES_CACHE_FILE = Path(__file__).parent / "scores_cache.json"
 ALERTS_FILE = Path(__file__).parent / "alerts.json"
 
@@ -136,46 +118,27 @@ SWING_PICKS = [
      "entry": 220.00, "target": 245.00, "stop": 211.00},
 ]
 
-STRATEGY_TIMELINE = [
-    {"period": "Immediate", "action": "Execute EWY Trim",
-     "detail": "Lock in 26% gain on international ETF. Prudent given new "
-               "10% global tariff uncertainty."},
-    {"period": "This Week", "action": "Monitor NVDA Earnings (Wed)",
-     "detail": "Nvidia results will dictate whether OKLO and VOO face a "
-               "sector-wide AI correction."},
-    {"period": "April 2026", "action": "Trim OKLO if >$82",
-     "detail": "Likely volatility spike before Q1 earnings. Lock in any "
-               "gains above $80."},
-    {"period": "Late 2026", "action": "Accumulate SCHD",
-     "detail": "Value stocks are predicted to outperform tech in H2 2026."},
-    {"period": "July 2026", "action": "OKLO DOE Deadline",
-     "detail": "If they miss the criticality milestone the stock will "
-               "likely retrace to the $40 range."},
-]
+STRATEGY_TIMELINE = []  # Public branch: no personal timeline
 
 # Tickers to check for earnings this week
 WATCHLIST = ["NVDA", "AAPL", "MSFT", "GOOGL", "META", "AMZN", "TSLA", "JPM"]
 
 MACRO_KEYWORDS = {
-    "tariff":       {"tickers": ["EWY"],  "level": "HIGH",   "reason": "International trade risk"},
-    "china":        {"tickers": ["EWY"],  "level": "HIGH",   "reason": "China geopolitical risk"},
-    "sanctions":    {"tickers": ["EWY"],  "level": "HIGH",   "reason": "Sanctions risk"},
-    "fed":          {"tickers": ["SCHD","VOO"], "level": "MEDIUM", "reason": "Fed policy change"},
-    "rate hike":    {"tickers": ["SCHD","VOO"], "level": "MEDIUM", "reason": "Rate hike risk"},
-    "rate cut":     {"tickers": ["SCHD","VOO"], "level": "MEDIUM", "reason": "Rate cut signal"},
-    "inflation":    {"tickers": ["SCHD","VOO"], "level": "MEDIUM", "reason": "Inflation impact"},
-    "recession":    {"tickers": ["*"],    "level": "MEDIUM", "reason": "Recession risk"},
-    "gdp":          {"tickers": ["*"],    "level": "MEDIUM", "reason": "GDP growth concern"},
-    "war":          {"tickers": ["*"],    "level": "HIGH",   "reason": "Geopolitical conflict"},
-    "opec":         {"tickers": ["*"],    "level": "MEDIUM", "reason": "Energy price impact"},
-    "earnings miss":{"tickers": ["*"],    "level": "MEDIUM", "reason": "Earnings concern"},
+    "tariff":       {"tickers": ["*"], "level": "HIGH",   "reason": "International trade risk"},
+    "china":        {"tickers": ["*"], "level": "HIGH",   "reason": "China geopolitical risk"},
+    "sanctions":    {"tickers": ["*"], "level": "HIGH",   "reason": "Sanctions risk"},
+    "fed":          {"tickers": ["*"], "level": "MEDIUM", "reason": "Fed policy change"},
+    "rate hike":    {"tickers": ["*"], "level": "MEDIUM", "reason": "Rate hike risk"},
+    "rate cut":     {"tickers": ["*"], "level": "MEDIUM", "reason": "Rate cut signal"},
+    "inflation":    {"tickers": ["*"], "level": "MEDIUM", "reason": "Inflation impact"},
+    "recession":    {"tickers": ["*"], "level": "MEDIUM", "reason": "Recession risk"},
+    "gdp":          {"tickers": ["*"], "level": "MEDIUM", "reason": "GDP growth concern"},
+    "war":          {"tickers": ["*"], "level": "HIGH",   "reason": "Geopolitical conflict"},
+    "opec":         {"tickers": ["*"], "level": "MEDIUM", "reason": "Energy price impact"},
+    "earnings miss":{"tickers": ["*"], "level": "MEDIUM", "reason": "Earnings concern"},
 }
 
 SECTOR_ETF_MAP = {
-    "OKLO": "NLR",
-    "EWY": "EEM",
-    "SCHD": "DVY",
-    "VOO": "SPY",
     "Technology": "XLK",
     "Healthcare": "XLV",
     "Financials": "XLF",

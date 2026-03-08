@@ -8,7 +8,7 @@ The app generates a personalized dashboard and sends them a report.
 APP_VERSION = "3.1.0"
 
 import streamlit as st
-import os, datetime, smtplib, time
+import os, json, datetime, smtplib, time
 import pandas as pd
 import pytz
 import plotly.graph_objects as go
@@ -32,6 +32,38 @@ from main import (
     fetch_sp500_tickers, analyse_stocks, get_top_movers,
     MY_PORTFOLIO, get_crypto_prices, get_fear_greed, get_ai_strategy_note,
 )
+
+# Public branch: My Portfolio hidden. Deploy this branch for the public Streamlit app.
+# Use 'master' branch + PUBLIC_MODE=0 in Streamlit secrets for your personal app.
+PUBLIC_MODE = True
+
+# Portfolio persistence path (survives refreshes and restarts)
+_PORTFOLIO_SAVE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "portfolio_save.json"
+)
+
+def _load_saved_portfolio():
+    """Load portfolio from disk. Returns None if no save exists."""
+    try:
+        if os.path.isfile(_PORTFOLIO_SAVE_PATH):
+            with open(_PORTFOLIO_SAVE_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            out = data.get("portfolio", [])
+            if out and isinstance(out[0], dict) and "ticker" in out[0]:
+                return out
+    except Exception:
+        pass
+    return None
+
+def _save_portfolio(portfolio: list):
+    """Save portfolio to disk. No-op in PUBLIC_MODE."""
+    if PUBLIC_MODE:
+        return
+    try:
+        with open(_PORTFOLIO_SAVE_PATH, "w", encoding="utf-8") as f:
+            json.dump({"portfolio": portfolio, "updated": datetime.datetime.now().isoformat()}, f, indent=2)
+    except Exception:
+        pass
 
 # ═════════════════════════════════════════════════════════════════
 #  PAGE CONFIG
@@ -864,11 +896,15 @@ def load_sp500():
 #  SESSION STATE
 # ═════════════════════════════════════════════════════════════════
 if "page_mode" not in st.session_state:
-    st.session_state.page_mode = "personal"  # "personal" = My Portfolio, "custom" = Analyze Stocks
+    st.session_state.page_mode = "custom" if PUBLIC_MODE else "personal"
 if "portfolio_submitted" not in st.session_state:
-    st.session_state.portfolio_submitted = True  # Start with dashboard (My Portfolio)
+    st.session_state.portfolio_submitted = False if PUBLIC_MODE else True
 if "user_portfolio" not in st.session_state:
-    st.session_state.user_portfolio = MY_PORTFOLIO
+    if PUBLIC_MODE:
+        st.session_state.user_portfolio = []
+    else:
+        saved = _load_saved_portfolio()
+        st.session_state.user_portfolio = saved if saved else MY_PORTFOLIO
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
 if "num_stocks" not in st.session_state:
@@ -893,12 +929,14 @@ with st.sidebar:
     )
     st.divider()
 
-    # Navigation: My Portfolio vs Analyze Stocks (stacked = full width, no wrap)
-    if st.button("My Portfolio", use_container_width=True, type="primary" if st.session_state.page_mode == "personal" else "secondary"):
-        st.session_state.page_mode = "personal"
-        st.session_state.user_portfolio = MY_PORTFOLIO
-        st.session_state.portfolio_submitted = True
-        st.rerun()
+    # Navigation: My Portfolio vs Analyze Stocks (hidden in PUBLIC_MODE)
+    if not PUBLIC_MODE:
+        if st.button("My Portfolio", use_container_width=True, type="primary" if st.session_state.page_mode == "personal" else "secondary"):
+            st.session_state.page_mode = "personal"
+            saved = _load_saved_portfolio()
+            st.session_state.user_portfolio = saved if saved else MY_PORTFOLIO
+            st.session_state.portfolio_submitted = True
+            st.rerun()
     if st.button("Analyze Stocks", use_container_width=True, type="primary" if st.session_state.page_mode == "custom" else "secondary"):
         st.session_state.page_mode = "custom"
         st.session_state.portfolio_submitted = False
@@ -908,76 +946,77 @@ with st.sidebar:
     st.divider()
 
     if st.session_state.portfolio_submitted:
-        st.markdown(
-            f'<div style="font-size:11px;color:{DIM};font-weight:600;'
-            f'text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">'
-            f'{"My Portfolio" if st.session_state.page_mode == "personal" else "Your Portfolio"}</div>',
-            unsafe_allow_html=True,
-        )
-        for p in st.session_state.user_portfolio:
+        if not PUBLIC_MODE:
             st.markdown(
-                f'<div style="padding:4px 0;font-size:13px;">'
-                f'<span style="color:{WHITE};font-weight:700;">{p["ticker"]}</span>'
-                f' <span style="color:{DIM};">-- {p["shares"]} @ {dlr(p["avg_cost"])}</span>'
-                f'</div>',
+                f'<div style="font-size:11px;color:{DIM};font-weight:600;'
+                f'text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">'
+                f'{"My Portfolio" if st.session_state.page_mode == "personal" else "Your Portfolio"}</div>',
                 unsafe_allow_html=True,
             )
-        st.divider()
-        with st.expander("Add Stock", expanded=False):
-            add_mode = st.radio("Action", ["Add shares", "Reduce position (sold)"], key="add_mode",
-                                horizontal=True)
-            add_ticker = st.text_input("Ticker", key="add_ticker", placeholder="e.g. AAPL")
-            with st.form("add_stock_form", clear_on_submit=False, enter_to_submit=False):
-                add_shares = st.number_input("Shares", min_value=0.0, step=1.0, key="add_shares", value=0.0)
-                add_avg = st.number_input("Avg Cost ($)", min_value=0.0, step=0.01, key="add_avg", value=0.0,
-                                          help="For 'Add shares': cost per share. For 'Reduce': optional (price sold at).")
-                form_submitted = st.form_submit_button("Update Portfolio")
-            if form_submitted:
-                tk = (add_ticker or "").upper().strip()
-                current = list(st.session_state.user_portfolio)
-                existing = next((p for p in current if p["ticker"] == tk), None)
+            for p in st.session_state.user_portfolio:
+                st.markdown(
+                    f'<div style="padding:4px 0;font-size:13px;">'
+                    f'<span style="color:{WHITE};font-weight:700;">{p["ticker"]}</span>'
+                    f' <span style="color:{DIM};">-- {p["shares"]} @ {dlr(p["avg_cost"])}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            st.divider()
+            with st.expander("Add Stock", expanded=False):
+                add_mode = st.radio("Action", ["Add shares", "Reduce position (sold)"], key="add_mode",
+                                    horizontal=True)
+                add_ticker = st.text_input("Ticker", key="add_ticker", placeholder="e.g. AAPL")
+                with st.form("add_stock_form", clear_on_submit=False, enter_to_submit=False):
+                    add_shares = st.number_input("Shares", min_value=0.0, step=1.0, key="add_shares", value=0.0)
+                    add_avg = st.number_input("Avg Cost ($)", min_value=0.0, step=0.01, key="add_avg", value=0.0,
+                                              help="For 'Add shares': cost per share. For 'Reduce': optional (price sold at).")
+                    form_submitted = st.form_submit_button("Update Portfolio")
+                if form_submitted:
+                    tk = (add_ticker or "").upper().strip()
+                    current = list(st.session_state.user_portfolio)
+                    existing = next((p for p in current if p["ticker"] == tk), None)
 
-                if add_mode == "Add shares":
-                    if tk and add_shares > 0 and add_avg > 0:
-                        if existing:
-                            # Average in: new_avg = (old_shares*old_avg + new_shares*new_avg) / total_shares
-                            old_s, old_a = existing["shares"], existing["avg_cost"]
-                            new_s = old_s + add_shares
-                            new_avg = (old_s * old_a + add_shares * add_avg) / new_s
-                            existing["shares"] = round(new_s, 2)
-                            existing["avg_cost"] = round(new_avg, 2)
-                            st.success(f"Added {add_shares:.0f} shares of {tk}. New avg cost: ${new_avg:.2f}")
+                    if add_mode == "Add shares":
+                        if tk and add_shares > 0 and add_avg > 0:
+                            if existing:
+                                old_s, old_a = existing["shares"], existing["avg_cost"]
+                                new_s = old_s + add_shares
+                                new_avg = (old_s * old_a + add_shares * add_avg) / new_s
+                                existing["shares"] = round(new_s, 2)
+                                existing["avg_cost"] = round(new_avg, 2)
+                                st.success(f"Added {add_shares:.0f} shares of {tk}. New avg cost: ${new_avg:.2f}")
+                            else:
+                                current.append({"ticker": tk, "shares": add_shares, "avg_cost": add_avg})
+                                st.success(f"Added {tk} to portfolio.")
+                            st.session_state.user_portfolio = current
+                            st.session_state.portfolio_version = st.session_state.get("portfolio_version", 0) + 1
+                            _save_portfolio(current)
+                            for k in ("holdings", "_live_holdings"):
+                                st.session_state.pop(k, None)
+                            st.cache_data.clear()
+                            st.rerun()
                         else:
-                            current.append({"ticker": tk, "shares": add_shares, "avg_cost": add_avg})
-                            st.success(f"Added {tk} to portfolio.")
-                        st.session_state.user_portfolio = current
-                        st.session_state.portfolio_version = st.session_state.get("portfolio_version", 0) + 1
-                        for k in ("holdings", "_live_holdings"):
-                            st.session_state.pop(k, None)
-                        st.cache_data.clear()
-                        st.rerun()
+                            st.error("Enter ticker, shares, and avg cost.")
                     else:
-                        st.error("Enter ticker, shares, and avg cost.")
-                else:
-                    # Reduce position (sold)
-                    if tk and add_shares > 0 and existing:
-                        old_s = existing["shares"]
-                        if add_shares >= old_s:
-                            current = [p for p in current if p["ticker"] != tk]
-                            st.success(f"Removed {tk} (sold full position).")
+                        if tk and add_shares > 0 and existing:
+                            old_s = existing["shares"]
+                            if add_shares >= old_s:
+                                current = [p for p in current if p["ticker"] != tk]
+                                st.success(f"Removed {tk} (sold full position).")
+                            else:
+                                existing["shares"] = round(old_s - add_shares, 2)
+                                st.success(f"Reduced {tk} by {add_shares:.0f} shares. Remaining: {existing['shares']:.0f}")
+                            st.session_state.user_portfolio = current
+                            st.session_state.portfolio_version = st.session_state.get("portfolio_version", 0) + 1
+                            _save_portfolio(current)
+                            for k in ("holdings", "_live_holdings"):
+                                st.session_state.pop(k, None)
+                            st.cache_data.clear()
+                            st.rerun()
+                        elif not existing:
+                            st.error(f"{tk} is not in your portfolio.")
                         else:
-                            existing["shares"] = round(old_s - add_shares, 2)
-                            st.success(f"Reduced {tk} by {add_shares:.0f} shares. Remaining: {existing['shares']:.0f}")
-                        st.session_state.user_portfolio = current
-                        st.session_state.portfolio_version = st.session_state.get("portfolio_version", 0) + 1
-                        for k in ("holdings", "_live_holdings"):
-                            st.session_state.pop(k, None)
-                        st.cache_data.clear()
-                        st.rerun()
-                    elif not existing:
-                        st.error(f"{tk} is not in your portfolio.")
-                    else:
-                        st.error("Enter ticker and shares sold.")
+                            st.error("Enter ticker and shares sold.")
         st.divider()
         if st.session_state.page_mode == "custom":
             if st.button("Start Over", use_container_width=True):
